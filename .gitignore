@@ -3,3 +3,6 @@ build/
 .claude/
 *.obrk
 keys/
+__pycache__/
+*.pyc
+*.pyo
