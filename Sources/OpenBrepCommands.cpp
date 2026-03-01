@@ -23,12 +23,9 @@ static void LaunchGdlCopilot ()
 
 GSErrCode OpenBrepMenuCommandHandler (const API_MenuParams* menuParams)
 {
-	if (menuParams->menuItemRef.menuResID != OpenBrepMenuResId)
-		return NoError;
-
-	if (menuParams->menuItemRef.itemIndex == OpenBrepMenuItemLaunchOpenBrepIndex) {
+	if (menuParams->menuItemRef.menuResID == OpenBrepMenuResIdLaunch) {
 		LaunchOpenBrepInBrowser ();
-	} else if (menuParams->menuItemRef.itemIndex == OpenBrepMenuItemGdlCopilotIndex) {
+	} else if (menuParams->menuItemRef.menuResID == OpenBrepMenuResIdCopilot) {
 		LaunchGdlCopilot ();
 	}
 

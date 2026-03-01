@@ -10,8 +10,12 @@
 }
 
 
-'STR#' 32500 "Strings for the Menu" {
+'STR#' 32500 "Launch OpenBrep Menu" {
 /* [   ] */		"OpenBrep"
 /* [  1] */			"启动 OpenBrep"
-/* [  2] */			"GDL Copilot"
+}
+
+'STR#' 32501 "GDL Copilot Menu" {
+/* [   ] */		"OpenBrep"
+/* [  1] */			"GDL Copilot"
 }

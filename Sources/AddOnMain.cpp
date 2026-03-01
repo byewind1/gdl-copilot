@@ -13,7 +13,11 @@ API_AddonType CheckEnvironment (API_EnvirParams* envir)
 
 GSErrCode RegisterInterface (void)
 {
-	GSErrCode err = ACAPI_MenuItem_RegisterMenu (OpenBrepMenuResId, 0, MenuCode_UserDef, MenuFlag_Default);
+	GSErrCode err = ACAPI_MenuItem_RegisterMenu (OpenBrepMenuResIdLaunch, 0, MenuCode_UserDef, MenuFlag_Default);
+	if (DBERROR (err != NoError))
+		return err;
+
+	err = ACAPI_MenuItem_RegisterMenu (OpenBrepMenuResIdCopilot, 0, MenuCode_UserDef, MenuFlag_Default);
 	if (DBERROR (err != NoError))
 		return err;
 
@@ -22,7 +26,11 @@ GSErrCode RegisterInterface (void)
 
 GSErrCode Initialize (void)
 {
-	GSErrCode err = ACAPI_MenuItem_InstallMenuHandler (OpenBrepMenuResId, OpenBrepMenuCommandHandler);
+	GSErrCode err = ACAPI_MenuItem_InstallMenuHandler (OpenBrepMenuResIdLaunch, OpenBrepMenuCommandHandler);
+	if (DBERROR (err != NoError))
+		return err;
+
+	err = ACAPI_MenuItem_InstallMenuHandler (OpenBrepMenuResIdCopilot, OpenBrepMenuCommandHandler);
 	if (DBERROR (err != NoError))
 		return err;
 
