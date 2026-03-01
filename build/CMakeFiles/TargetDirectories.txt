@@ -1,4 +1,0 @@
-/Users/ren/MAC工作/工作/code/开源项目/openbrep-addon/build/CMakeFiles/AddOnResources.dir
-/Users/ren/MAC工作/工作/code/开源项目/openbrep-addon/build/CMakeFiles/AddOn.dir
-/Users/ren/MAC工作/工作/code/开源项目/openbrep-addon/build/CMakeFiles/edit_cache.dir
-/Users/ren/MAC工作/工作/code/开源项目/openbrep-addon/build/CMakeFiles/rebuild_cache.dir
