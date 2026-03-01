@@ -1,0 +1,3 @@
+# Hashes of file build rules.
+b3c6d5de70aad95ae677c1a9a2f3bff2 CMakeFiles/AddOnResources
+934c4ae99ca61e4b52459815d28c9c4f ResourceObjects/AddOnResources.stamp

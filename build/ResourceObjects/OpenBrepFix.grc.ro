@@ -1,0 +1,7 @@
+
+############################## This file was created by GRC compiler ##############################################
+#
+# Source file: /Users/ren/MAC工作/工作/code/开源项目/openbrep-addon/build/ResourceObjects/OpenBrepFix.grc.i        Code table: NUL              #
+######## Version 2.0 - Macintosh ##################### (c) 1996-2026 by Graphisoft ############################
+GSRSRDDepends [ GSFiles $(bundleLocResDir) : "MDID_32500.rsrd" ] : "/Users/ren/MAC工作/工作/code/开源项目/openbrep-addon/build/ResourceObjects/MDID_32500.rsrd" : $(rsrdlogDone) ;
+GSSTRINGSDepends [ GSFiles $(bundleLocResDir) : "Localizable.strings" ] : $(rsrdlogDone) ;
