@@ -47,6 +47,7 @@ CopilotPalette::CopilotPalette () :
 	ACAPI_ProjectOperation_CatchProjectEvent (APINotify_Quit, NotificationHandler);
 	Attach (*this);
 	ConfigureInitialPaletteSize (*this);
+	browser.Move (0, 0);
 	browser.SetSize (GetClientWidth (), GetClientHeight ());
 	BeginEventProcessing ();
 	InitBrowserControl ();
@@ -96,10 +97,10 @@ void CopilotPalette::InitBrowserControl ()
 	browser.LoadURL ("http://localhost:8502");
 }
 
-void CopilotPalette::PanelResized (const DG::PanelResizeEvent& ev)
+void CopilotPalette::PanelResized (const DG::PanelResizeEvent&)
 {
 	BeginMoveResizeItems ();
-	browser.Resize (ev.GetHorizontalChange (), ev.GetVerticalChange ());
+	browser.SetSize (GetClientWidth (), GetClientHeight ());
 	EndMoveResizeItems ();
 }
 

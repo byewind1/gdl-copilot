@@ -20,7 +20,7 @@
 /* [  1] */			"GDL Copilot"
 }
 
-'GDLG' 32510 Palette | leftCaption | close | grow  0  0  400  600  "GDL Copilot" {
+'GDLG' 32510 Palette | close | grow  0  0  400  600  "GDL Copilot" {
 /* [  1] */ Browser  0  0  400  600
 }
 
