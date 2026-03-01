@@ -13,7 +13,7 @@ API_AddonType CheckEnvironment (API_EnvirParams* envir)
 
 GSErrCode RegisterInterface (void)
 {
-	GSErrCode err = ACAPI_MenuItem_RegisterMenu (OpenBrepMenuResId, 2, MenuCode_UserDef, MenuFlag_Default);
+	GSErrCode err = ACAPI_MenuItem_RegisterMenu (OpenBrepMenuResId, 0, MenuCode_UserDef, MenuFlag_Default);
 	if (DBERROR (err != NoError))
 		return err;
 
