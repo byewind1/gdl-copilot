@@ -19,33 +19,28 @@
     html, body {
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      height: 100%;
-      font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
-    body {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
+      font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
     }
     .app {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       display: flex;
       flex-direction: column;
-      height: 100vh;
       overflow: hidden;
     }
     .header {
       flex-shrink: 0;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
+      padding: 8px 16px;
       border-bottom: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(6px);
+      background: rgba(15,23,42,0.95);
     }
     .title {
       display: flex;
@@ -72,6 +67,8 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      word-break: break-word;
+      white-space: pre-wrap;
     }
 
     .msg-wrap {
@@ -82,13 +79,15 @@
     .msg-wrap.assistant { justify-content: flex-start; }
 
     .msg {
-      max-width: min(860px, 86%);
+      max-width: 100%;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px 12px;
       white-space: pre-wrap;
       line-height: 1.5;
       font-size: 14px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
     .user .msg {
       background: var(--panel-2);
@@ -134,9 +133,8 @@
     .composer {
       flex-shrink: 0;
       border-top: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(6px);
-      padding: 12px 16px;
+      background: rgba(15,23,42,0.95);
+      padding: 10px 16px;
       display: grid;
       gap: 8px;
     }
