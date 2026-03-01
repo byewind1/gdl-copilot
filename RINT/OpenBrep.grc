@@ -2,3 +2,11 @@
 /* [  1] */		"OpenBrep"
 /* [  2] */		"OpenBrep Archicad Bridge"
 }
+
+'GDLG' 32510 Palette | topCaption | close | grow 0 0 900 700 "GDL Copilot" {
+/* [  1] */ Browser 0 0 900 700
+}
+
+'DLGH' 32510 DLG_32510_Copilot_Palette {
+1 "Copilot Browser" Browser_0
+}

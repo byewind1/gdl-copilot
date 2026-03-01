@@ -2,6 +2,7 @@
 #include "ACAPinc.h"
 
 #include "OpenBrepCommands.hpp"
+#include "CopilotPalette.hpp"
 
 API_AddonType CheckEnvironment (API_EnvirParams* envir)
 {
@@ -31,6 +32,10 @@ GSErrCode Initialize (void)
 		return err;
 
 	err = ACAPI_MenuItem_InstallMenuHandler (OpenBrepMenuResIdCopilot, OpenBrepMenuCommandHandler);
+	if (DBERROR (err != NoError))
+		return err;
+
+	err = CopilotPalette::RegisterPaletteControlCallBack ();
 	if (DBERROR (err != NoError))
 		return err;
 
