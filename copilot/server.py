@@ -44,7 +44,7 @@ SYSTEM_PROMPT = """你是 Archicad GDL 脚本 AI 修复助手。
 3. 代码用 ```gdl ``` 包裹
 不废话，建筑师只要能跑的代码。若信息不足主动追问。"""
 
-ERROR_SUMMARY_SYSTEM_PROMPT = "你是 GDL 错误分析助手，把以下编译错误列表总结成一句简洁的中文描述，只说错误位置和原因，不给修复建议。"
+ERROR_SUMMARY_SYSTEM_PROMPT = "你是 GDL 错误分析助手，把以下编译错误列表总结成一句简洁的中文描述（不超过200字），只说错误位置和原因，不给修复建议。"
 ERROR_CLIPBOARD_PATTERN = re.compile(r"(line|\.gsm|\.gdl|error|warning|错误|警告)", re.IGNORECASE)
 
 clipboard_lock = threading.Lock()
