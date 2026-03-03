@@ -27,7 +27,7 @@ if str(OBR_ROOT) not in sys.path:
 from openbrep.config import GDLAgentConfig
 from openbrep.llm import LLMAdapter
 
-app = FastAPI(title="GDL Copilot", version="0.1.0")
+app = FastAPI(title="GDL Copilot", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
