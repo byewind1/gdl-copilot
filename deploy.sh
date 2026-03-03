@@ -2,7 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-cd build && make -j"$(sysctl -n hw.logicalcpu)"
+cmake --build build -j"$(sysctl -n hw.logicalcpu)"
 
 rm -rf '/Applications/GRAPHISOFT/Archicad 29/Add-Ons/OpenBrep.bundle'
 cp -r build/OpenBrep.bundle '/Applications/GRAPHISOFT/Archicad 29/Add-Ons/'
