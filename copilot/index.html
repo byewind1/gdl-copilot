@@ -113,6 +113,13 @@
       background: var(--bg);
       color: var(--text);
     }
+    .msg-image {
+      max-width: 100%;
+      max-height: 160px;
+      border-radius: 8px;
+      display: block;
+      margin-bottom: 6px;
+    }
 
     .code {
       position: relative;
@@ -404,7 +411,7 @@
       return btn;
     }
 
-    function appendMessage(role, text) {
+    function appendMessage(role, text, imageDataUrl = null) {
       const wrap = document.createElement('div');
       wrap.className = `msg-wrap ${role}`;
 
@@ -430,7 +437,18 @@
           }
         }
       } else {
-        msg.textContent = text;
+        if (imageDataUrl) {
+          const img = document.createElement('img');
+          img.className = 'msg-image';
+          img.src = imageDataUrl;
+          img.alt = '用户上传图片';
+          msg.appendChild(img);
+        }
+        if (text) {
+          const textNode = document.createElement('div');
+          textNode.textContent = text;
+          msg.appendChild(textNode);
+        }
       }
 
       wrap.appendChild(msg);
@@ -499,11 +517,13 @@
       if ((!message && !hasImage) || sending) return;
 
       errorEl.textContent = '';
-      appendMessage('user', hasImage ? `${message || '(图片)'}\n[已附加图片：${attachedImageName || '截图'}]` : message);
-      const reqHistory = history.slice();
       const imageB64 = attachedImageB64;
       const imageMime = attachedImageMime;
       const imageName = attachedImageName;
+      const currentImageDataUrl = hasImage ? `data:${imageMime || 'image/png'};base64,${imageB64}` : null;
+      const userText = hasImage ? (message || '[图片]') : message;
+      appendMessage('user', userText, currentImageDataUrl);
+      const reqHistory = history.slice();
       inputEl.value = '';
       clearAttachedImage();
       setLoading(true);
@@ -526,7 +546,12 @@
 
         const data = await res.json();
         const reply = (data.reply || '').trim();
-        history.push({ role: 'user', content: hasImage ? `${message || '(图片)'}\n[已附加图片：${imageName || '截图'}]` : message });
+        history.push({
+          role: 'user',
+          content: userText,
+          imageDataUrl: currentImageDataUrl,
+          imageName: imageName || null
+        });
         appendMessage('assistant', reply || '（空响应）');
         history.push({ role: 'assistant', content: reply || '（空响应）' });
       } catch (err) {
