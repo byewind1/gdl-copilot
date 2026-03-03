@@ -41,6 +41,9 @@
       padding: 8px 16px;
       border-bottom: 1px solid var(--border);
       background: rgba(15,23,42,0.95);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .title {
       display: flex;
@@ -57,6 +60,19 @@
       margin: 0;
       font-size: 12px;
       color: var(--muted);
+    }
+    .clear-btn {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .clear-btn:hover {
+      color: var(--danger);
+      border-color: var(--danger);
     }
 
     .chat {
@@ -220,6 +236,7 @@
         <h1>🤖 GDL Copilot</h1>
         <p>Archicad GDL 修复助手</p>
       </div>
+      <button id='clear' class='clear-btn' title='清空对话'>🗑 清空</button>
     </header>
 
     <main id="chat" class="chat"></main>
@@ -243,6 +260,7 @@
     const sendEl = document.getElementById('send');
     const statusEl = document.getElementById('status');
     const errorEl = document.getElementById('error');
+    const clearEl = document.getElementById('clear');
 
     const history = [];
     let sending = false;
@@ -378,6 +396,16 @@
       }
     }
 
+    function clearChat() {
+      history.length = 0;
+      chatEl.innerHTML = '';
+      appendMessage('assistant', '你好！把 Archicad 的编译报错或有问题的 GDL 代码粘进来，我帮你修。');
+      history.push({ role: 'assistant', content: '你好！把 Archicad 的编译报错或有问题的 GDL 代码粘进来，我帮你修。' });
+      errorEl.textContent = '';
+      inputEl.focus();
+    }
+
+    clearEl.addEventListener('click', clearChat);
     sendEl.addEventListener('click', sendMessage);
     inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
