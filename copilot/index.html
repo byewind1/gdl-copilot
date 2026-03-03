@@ -280,6 +280,90 @@
       border-color: var(--danger);
     }
 
+    .collector {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+    .collector-toggle {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .collector-toggle.has-items {
+      color: var(--accent);
+    }
+    .collector-body {
+      border-top: 1px solid var(--border);
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+    }
+    .collector-body.hidden {
+      display: none;
+    }
+    .collector-list {
+      display: grid;
+      gap: 6px;
+      max-height: 180px;
+      overflow: auto;
+    }
+    .collector-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      background: #0b1220;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: start;
+      font-size: 12px;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .collector-item button {
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0;
+    }
+    .collector-item button:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+    .collector-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .collector-btn {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .collector-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
     .hint {
       font-size: 12px;
       color: var(--muted);
@@ -328,6 +412,16 @@
     <main id="chat" class="chat"></main>
 
     <footer class="composer">
+      <div id="clipboardCollector" class="collector">
+        <button id="clipboardToggle" class="collector-toggle" title="展开或折叠错误收集区">📋 错误收集区（0）</button>
+        <div id="clipboardBody" class="collector-body hidden">
+          <div id="clipboardList" class="collector-list"></div>
+          <div class="collector-actions">
+            <button id="clipboardClear" class="collector-btn" title="清空收集区">清空</button>
+            <button id="clipboardSend" class="collector-btn" title="发送全部错误">全部发送</button>
+          </div>
+        </div>
+      </div>
       <div id="imageBox" class="image-box hidden">
         <div id="imageList" class="image-list"></div>
       </div>
@@ -358,11 +452,20 @@
     const imageInputEl = document.getElementById('imageInput');
     const imageBoxEl = document.getElementById('imageBox');
     const imageListEl = document.getElementById('imageList');
+    const clipboardToggleEl = document.getElementById('clipboardToggle');
+    const clipboardBodyEl = document.getElementById('clipboardBody');
+    const clipboardListEl = document.getElementById('clipboardList');
+    const clipboardSendEl = document.getElementById('clipboardSend');
+    const clipboardClearEl = document.getElementById('clipboardClear');
 
     const history = [];
     let sending = false;
     const maxImages = 3;
     const currentImages = [];
+    let clipboardItems = [];
+    let clipboardExpanded = false;
+    let clipboardPolling = false;
+    let lastClipboardCount = 0;
 
     function escapeHtml(str) {
       return str
@@ -476,6 +579,7 @@
       } else {
         statusEl.textContent = '';
       }
+      renderClipboardCollector();
     }
 
     function updateImagePreview() {
@@ -567,8 +671,9 @@
       }
     }
 
-    async function sendMessage() {
-      const message = inputEl.value.trim();
+    async function sendMessage(overrideMessage = null) {
+      const raw = overrideMessage === null ? inputEl.value : String(overrideMessage);
+      const message = raw.trim();
       const hasImages = currentImages.length > 0;
       if ((!message && !hasImages) || sending) return;
 
@@ -578,7 +683,9 @@
       const userText = hasImages ? (message || '[图片]') : message;
       appendMessage('user', userText, currentImageDataUrls);
       const reqHistory = history.slice();
-      inputEl.value = '';
+      if (overrideMessage === null) {
+        inputEl.value = '';
+      }
       clearAttachedImages();
       setLoading(true);
 
@@ -613,6 +720,77 @@
         setLoading(false);
         inputEl.focus();
       }
+    }
+
+    function renderClipboardCollector() {
+      const count = clipboardItems.length;
+      clipboardToggleEl.textContent = `📋 已捕获 ${count} 条错误`;
+      clipboardToggleEl.classList.toggle('has-items', count > 0);
+
+      if (count > 0 && count > lastClipboardCount) {
+        clipboardExpanded = true;
+      }
+      lastClipboardCount = count;
+
+      clipboardBodyEl.classList.toggle('hidden', !clipboardExpanded);
+      clipboardListEl.innerHTML = '';
+
+      for (let i = 0; i < clipboardItems.length; i += 1) {
+        const row = document.createElement('div');
+        row.className = 'collector-item';
+
+        const content = document.createElement('div');
+        content.textContent = clipboardItems[i];
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.title = '删除';
+        removeBtn.textContent = '✕';
+        removeBtn.addEventListener('click', async () => {
+          clipboardItems.splice(i, 1);
+          await syncClipboardBuffer();
+          renderClipboardCollector();
+        });
+
+        row.appendChild(content);
+        row.appendChild(removeBtn);
+        clipboardListEl.appendChild(row);
+      }
+
+      clipboardSendEl.disabled = count === 0 || sending;
+      clipboardClearEl.disabled = count === 0 || sending;
+    }
+
+    async function syncClipboardBuffer() {
+      await fetch('http://localhost:8502/clipboard-buffer/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: clipboardItems })
+      });
+    }
+
+    async function pollClipboardBuffer() {
+      if (clipboardPolling) return;
+      clipboardPolling = true;
+      try {
+        const res = await fetch('http://localhost:8502/clipboard-buffer');
+        if (!res.ok) return;
+        const data = await res.json();
+        clipboardItems = Array.isArray(data.items) ? data.items.map((x) => String(x || '').trim()).filter(Boolean) : [];
+        renderClipboardCollector();
+      } catch {
+      } finally {
+        clipboardPolling = false;
+      }
+    }
+
+    async function sendClipboardBatch() {
+      if (clipboardItems.length === 0 || sending) return;
+      const joined = clipboardItems.map((item, idx) => `【错误 ${idx + 1}】\n${item}`).join('\n\n');
+      await sendMessage(joined);
+      clipboardItems = [];
+      await syncClipboardBuffer();
+      renderClipboardCollector();
     }
 
     function clearChat() {
@@ -659,8 +837,20 @@
         errorEl.textContent = `粘贴图片失败：${err.message || err}`;
       }
     });
+
+    clipboardToggleEl.addEventListener('click', () => {
+      clipboardExpanded = !clipboardExpanded;
+      renderClipboardCollector();
+    });
+    clipboardSendEl.addEventListener('click', sendClipboardBatch);
+    clipboardClearEl.addEventListener('click', async () => {
+      clipboardItems = [];
+      await syncClipboardBuffer();
+      renderClipboardCollector();
+    });
+
     clearEl.addEventListener('click', clearChat);
-    sendEl.addEventListener('click', sendMessage);
+    sendEl.addEventListener('click', () => sendMessage());
     inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -671,6 +861,9 @@
     appendMessage('assistant', '你好！把 Archicad 的编译报错或有问题的 GDL 代码粘进来，我帮你修。也可以直接粘贴截图或点击📎上传图片。');
     history.push({ role: 'assistant', content: '你好！把 Archicad 的编译报错或有问题的 GDL 代码粘进来，我帮你修。也可以直接粘贴截图或点击📎上传图片。' });
     updateImagePreview();
+    renderClipboardCollector();
+    pollClipboardBuffer();
+    setInterval(pollClipboardBuffer, 1000);
     inputEl.focus();
   </script>
 </body>

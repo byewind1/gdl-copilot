@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -35,6 +38,33 @@ SYSTEM_PROMPT = """你是 Archicad GDL 脚本 AI 修复助手。
 3. 代码用 ```gdl ``` 包裹
 不废话，建筑师只要能跑的代码。若信息不足主动追问。"""
 
+clipboard_lock = threading.Lock()
+clipboard_buffer: list[str] = []
+clipboard_last_raw = ""
+
+
+def _read_clipboard_text() -> str:
+    try:
+        return subprocess.check_output(["pbpaste"], text=True, timeout=1).strip()
+    except Exception:
+        return ""
+
+
+def _clipboard_watch_loop() -> None:
+    global clipboard_last_raw
+
+    while True:
+        value = _read_clipboard_text()
+        if value and value != clipboard_last_raw:
+            clipboard_last_raw = value
+            with clipboard_lock:
+                if value not in clipboard_buffer:
+                    clipboard_buffer.append(value)
+        time.sleep(0.8)
+
+
+threading.Thread(target=_clipboard_watch_loop, daemon=True).start()
+
 
 class HistoryMessage(BaseModel):
     role: str
@@ -55,6 +85,14 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     code_blocks: list[str]
+
+
+class ClipboardBufferResponse(BaseModel):
+    items: list[str]
+
+
+class ClipboardBufferUpdateRequest(BaseModel):
+    items: list[str] = Field(default_factory=list)
 
 
 def _extract_gdl_code_blocks(text: str) -> list[str]:
@@ -100,6 +138,22 @@ def _create_llm_adapter() -> LLMAdapter:
 def index() -> HTMLResponse:
     html_path = Path(__file__).with_name("index.html")
     return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
+
+
+@app.get("/clipboard-buffer", response_model=ClipboardBufferResponse)
+def get_clipboard_buffer() -> ClipboardBufferResponse:
+    with clipboard_lock:
+        return ClipboardBufferResponse(items=list(clipboard_buffer))
+
+
+@app.post("/clipboard-buffer/clear", response_model=ClipboardBufferResponse)
+def clear_clipboard_buffer(req: ClipboardBufferUpdateRequest | None = None) -> ClipboardBufferResponse:
+    items = req.items if req is not None else []
+    normalized = [item.strip() for item in items if item and item.strip()]
+    with clipboard_lock:
+        clipboard_buffer.clear()
+        clipboard_buffer.extend(normalized)
+        return ClipboardBufferResponse(items=list(clipboard_buffer))
 
 
 @app.post("/chat", response_model=ChatResponse)
