@@ -2,9 +2,7 @@
 #include "AddOnVersion.hpp"
 #include "CopilotPalette.hpp"
 
-#include <chrono>
 #include <cstdlib>
-#include <thread>
 
 namespace {
 
@@ -15,9 +13,6 @@ static void LaunchOpenBrepInBrowser ()
 
 static void LaunchGdlCopilot ()
 {
-	std::system ("/bin/bash -c 'cd /Users/ren/MAC工作/工作/code/开源项目/openbrep-addon && python -m uvicorn copilot.server:app --port 8502 > /tmp/copilot.log 2>&1 &'");
-	std::this_thread::sleep_for (std::chrono::milliseconds (1500));
-
 	if (!CopilotPalette::HasInstance ())
 		CopilotPalette::CreateInstance ();
 

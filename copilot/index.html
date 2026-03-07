@@ -467,6 +467,7 @@
     let clipboardItems = [];
     let clipboardExpanded = false;
     let clipboardPolling = false;
+    let clipboardPollTimer = null;
     let summarizingClipboard = false;
     let lastClipboardCount = 0;
 
@@ -774,8 +775,8 @@
       });
     }
 
-    async function pollClipboardBuffer() {
-      if (clipboardPolling) return;
+    async function pollClipboardBuffer(force = false) {
+      if ((!clipboardExpanded && !force) || clipboardPolling) return;
       clipboardPolling = true;
       try {
         const res = await fetch('http://localhost:8502/clipboard-buffer');
@@ -787,6 +788,20 @@
       } finally {
         clipboardPolling = false;
       }
+    }
+
+    function updateClipboardPolling() {
+      if (clipboardPollTimer !== null) {
+        clearInterval(clipboardPollTimer);
+        clipboardPollTimer = null;
+      }
+
+      if (!clipboardExpanded) return;
+
+      pollClipboardBuffer(true);
+      clipboardPollTimer = setInterval(() => {
+        pollClipboardBuffer();
+      }, 3000);
     }
 
     async function summarizeClipboardErrors() {
@@ -809,6 +824,7 @@
         clipboardItems = [];
         clipboardExpanded = false;
         renderClipboardCollector();
+        updateClipboardPolling();
         inputEl.focus();
       } catch (err) {
         errorEl.textContent = `错误总结失败：${err.message || err}`;
@@ -875,6 +891,7 @@
     clipboardToggleEl.addEventListener('click', () => {
       clipboardExpanded = !clipboardExpanded;
       renderClipboardCollector();
+      updateClipboardPolling();
     });
     clipboardSendEl.addEventListener('click', sendClipboardBatch);
     clipboardSummarizeEl.addEventListener('click', summarizeClipboardErrors);
@@ -897,8 +914,7 @@
     history.push({ role: 'assistant', content: '你好！把 Archicad 的编译报错或有问题的 GDL 代码粘进来，我帮你修。也可以直接粘贴截图或点击📎上传图片。' });
     updateImagePreview();
     renderClipboardCollector();
-    pollClipboardBuffer();
-    setInterval(pollClipboardBuffer, 1000);
+    updateClipboardPolling();
     inputEl.focus();
   </script>
 </body>

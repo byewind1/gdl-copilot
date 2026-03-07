@@ -1,11 +1,52 @@
 #include "CopilotPalette.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <thread>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 namespace {
 
 constexpr short MinPaletteClientWidth = 320;
 constexpr short MinPaletteClientHeight = 400;
+constexpr UInt16 CopilotServerPort = 8502;
+constexpr const char* CopilotServerUrl = "http://localhost:8502";
+constexpr const char* CopilotServerCommand = "/bin/bash -c 'cd /Users/ren/MAC工作/工作/code/开源项目/openbrep-addon && nohup /Users/ren/miniconda3/bin/python -m uvicorn copilot.server:app --port 8502 > /tmp/copilot.log 2>&1 &'";
+
+static bool IsCopilotServerRunning ()
+{
+	int socketFd = socket (AF_INET, SOCK_STREAM, 0);
+	if (socketFd < 0)
+		return false;
+
+	sockaddr_in serverAddress {};
+	serverAddress.sin_family = AF_INET;
+	serverAddress.sin_port = htons (CopilotServerPort);
+	serverAddress.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+
+	const bool connected = connect (socketFd, reinterpret_cast<sockaddr*> (&serverAddress), sizeof (serverAddress)) == 0;
+	close (socketFd);
+	return connected;
+}
+
+static void EnsureCopilotServerRunning ()
+{
+	if (IsCopilotServerRunning ())
+		return;
+
+	std::system (CopilotServerCommand);
+
+	for (int attempt = 0; attempt < 8; ++attempt) {
+		std::this_thread::sleep_for (std::chrono::milliseconds (250));
+		if (IsCopilotServerRunning ())
+			break;
+	}
+}
 
 static void ConfigureInitialPaletteSize (CopilotPalette& palette)
 {
@@ -95,7 +136,8 @@ void CopilotPalette::Hide ()
 
 void CopilotPalette::InitBrowserControl ()
 {
-	browser.LoadURL ("http://localhost:8502");
+	EnsureCopilotServerRunning ();
+	browser.LoadURL (CopilotServerUrl);
 }
 
 void CopilotPalette::PanelResized (const DG::PanelResizeEvent&)
