@@ -1,4 +1,4 @@
-# openbrep-addon / CLAUDE.md
+# openbrep-addon / AGENTS.md
 
 ## 接手任务前必读（Session Handoff）
 
@@ -127,7 +127,7 @@
 
 ## ⚠️ vibe coding 行为约束
 
-> 本项目由非程序员主导，Claude Code是执行者。以下规则防止屎山代码和技术债务累积。
+> 本项目由非程序员主导，Codex是执行者。以下规则防止屎山代码和技术债务累积。
 
 ### 接到任务前必须做的事
 
@@ -149,7 +149,7 @@
 
 1. 给出验证步骤（打开哪个页面，做什么操作，预期结果是什么）
 2. 提示commit：`git add . && git commit -m "功能描述" && git push origin main`
-3. 涉及新踩坑、架构变化、新依赖时，提示更新CLAUDE.md
+3. 涉及新踩坑、架构变化、新依赖时，提示更新AGENTS.md
 
 ### 遇到问题时的原则
 
