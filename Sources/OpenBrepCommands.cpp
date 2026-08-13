@@ -8,7 +8,7 @@ namespace {
 
 static void LaunchOpenBrepInBrowser ()
 {
-	std::system ("open http://localhost:8501");
+	std::system ("open http://localhost:8765");
 }
 
 static void LaunchGdlCopilot ()

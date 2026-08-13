@@ -32,8 +32,8 @@
 
 - 这是 Archicad 29 的 C++ Add-on，内嵌 AI GDL 修复助手
 - C++ 部分：`Sources/` 目录，负责 Archicad 面板 UI 和生命周期
-- Python 后端：`copilot/` 目录，FastAPI 服务跑在 `localhost:8502`
-- 后端复用 gdl-agent 的 LLMAdapter 和配置：`/Users/ren/MAC工作/工作/code/开源项目/gdl-agent`
+- 后端已并入 gdl-agent 工作台（`/api/copilot/*`），契约见 Obsidian 库
+  `01-Projects/dev开发/OpenBrep 开发/addon开发/Copilot深度整合-架构与任务总单-2026-08-13.md`
 
 ## 关键路径
 
@@ -48,12 +48,6 @@
 - `deploy.sh` 流程：`cmake --build build` → rm/cp bundle 到 AC29 → zip 打包 → `gh release create`
 - 禁止 `cd build` 再 `make`，会导致路径变成 `build/build/...`
 
-## 后端启动
-
-- 正确启动：`cd ~/MAC工作/工作/code/开源项目/openbrep-addon && python -m uvicorn copilot.server:app --port 8502`
-- C++ 侧会在面板打开时自动启动后端（`CopilotPalette.cpp`）
-- 端口占用时：`lsof -ti:8502 | xargs kill -9`
-
 ## LLM 配置
 
 - 配置文件：`/Users/ren/MAC工作/工作/code/开源项目/gdl-agent/config.toml`
@@ -65,21 +59,6 @@
 - 每次任务结尾：`git add -A && git commit && git push && bash deploy.sh`
 - 复杂功能先拆最小步骤验证，不要一步到位
 - 遇到 Archicad API 用法不确定，参考 `/Users/ren/tapir-archicad-automation`
-
-## 常见故障排查
-
-- 后端未启动/面板空白：
-  - 检查日志：`/tmp/copilot_debug.log`、`/tmp/copilot.log`
-  - 检查启动脚本：`ls -la /tmp/start_copilot.sh`（若不存在，面板会自动重建）
-  - 手动拉起：`cd ~/MAC工作/工作/code/开源项目/openbrep-addon && /Users/ren/miniconda3/bin/python -m uvicorn copilot.server:app --port 8502`
-- 端口占用：
-  - `lsof -ti:8502 | xargs kill -9`
-- 面板反复无法启动（需重启Archicad）：
-  - 可能原因：`/tmp/`目录被系统清理，启动脚本丢失
-  - 解决方案：v0.3.2+版本已内置脚本重建逻辑，面板打开时会自动检查并重建
-  - 若仍失败：检查`/tmp/copilot_debug.log`中`CreateStartScriptIfNeeded`日志
-- UI 报“请求失败”：
-  - 确认 `copilot/server.py` 正常运行，且 `gdl-agent/config.toml` 可读
 
 ## 构建依赖说明
 

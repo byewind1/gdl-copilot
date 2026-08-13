@@ -13,7 +13,7 @@ Archicad 内嵌 AI GDL 修复助手（OpenBrep 的 Archicad 插件版本）。
 
 - 已安装 OpenBrep Add-On（Archicad 插件）。
 - Archicad 29（AC29）。
-- Python 3 环境（建议 3.10+），并可运行 `uvicorn`。
+- 已安装 OpenBrep（gdl-agent）且 `obr` 在 PATH。
 
 ## 安装方法
 
@@ -24,11 +24,11 @@ Archicad 内嵌 AI GDL 修复助手（OpenBrep 的 Archicad 插件版本）。
 
 ## 启动方式
 
-在项目根目录启动 Copilot 服务：
+打开 Archicad 菜单 `OpenBrep -> GDL Copilot` 时，Add-On 会自动拉起
+OpenBrep 后台服务；也可手动启动：
 
 ```bash
-cd ~/MAC工作/工作/code/开源项目/openbrep-addon
-python -m uvicorn copilot.server:app --port 8502
+obr serve
 ```
 
 ## 使用方式
@@ -41,10 +41,10 @@ python -m uvicorn copilot.server:app --port 8502
 
 - GDL Copilot 是 OpenBrep 在 Archicad 侧的插件化能力扩展。
 - 面板、菜单与生命周期由 OpenBrep Add-On 承载。
-- AI 推理与配置依赖 OpenBrep / gdl-agent 相关运行环境。
+- 面板 UI 与后端 API（`/api/copilot/*`）由 gdl-agent 工作台提供（端口 `8765`）。
 
 ## 注意事项
 
 - 当前仅支持 Archicad 29（AC29）。
-- Copilot 服务依赖本地 `localhost:8502`。
-- 面板版交互与布局仍在持续优化中。
+- Copilot 面板依赖 OpenBrep 后台服务（默认端口 `8765`）。
+- 服务未运行时，面板会显示引导提示页（日志：`/tmp/openbrep_serve.log` 与 `~/.openbrep/logs/obr7.log`）。
