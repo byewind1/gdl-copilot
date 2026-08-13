@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 namespace {
@@ -50,6 +51,31 @@ static bool IsCopilotServerRunning ()
 	return connected;
 }
 
+static void CreateStartScriptIfNeeded ()
+{
+	const std::string scriptPath = "/tmp/start_copilot.sh";
+	std::ifstream testFile (scriptPath.c_str ());
+	if (testFile.good ()) {
+		return;
+	}
+
+	std::ofstream scriptFile (scriptPath, std::ios::out | std::ios::trunc);
+	if (!scriptFile.is_open ()) {
+		AppendCopilotDebugLog ("CreateStartScriptIfNeeded: failed to open script file for writing");
+		return;
+	}
+
+	scriptFile << "#!/bin/bash\n";
+	scriptFile << "set -euo pipefail\n";
+	scriptFile << "\n";
+	scriptFile << "cd \"/Users/ren/MAC工作/工作/code/开源项目/openbrep-addon\"\n";
+	scriptFile << "nohup /Users/ren/miniconda3/bin/python -m uvicorn copilot.server:app --port 8502 > /tmp/copilot.log 2>&1 &\n";
+	scriptFile.close ();
+
+	chmod (scriptPath.c_str (), 0755);
+	AppendCopilotDebugLog ("CreateStartScriptIfNeeded: script created");
+}
+
 static void EnsureCopilotServerRunning ()
 {
 	const bool runningBefore = IsCopilotServerRunning ();
@@ -57,10 +83,12 @@ static void EnsureCopilotServerRunning ()
 	if (runningBefore)
 		return;
 
+	CreateStartScriptIfNeeded ();
+
 	AppendCopilotDebugLog ("EnsureCopilotServerRunning: launching /tmp/start_copilot.sh");
 	std::system (CopilotServerCommand);
 
-	for (int attempt = 0; attempt < 8; ++attempt) {
+	for (int attempt = 0; attempt < 12; ++attempt) {
 		std::this_thread::sleep_for (std::chrono::milliseconds (250));
 		const bool running = IsCopilotServerRunning ();
 		AppendCopilotDebugLog (FormatDebugMessage ("EnsureCopilotServerRunning: poll=", running));

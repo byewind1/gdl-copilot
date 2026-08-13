@@ -46,6 +46,7 @@ SYSTEM_PROMPT = """你是 Archicad GDL 脚本 AI 修复助手。
 
 ERROR_SUMMARY_SYSTEM_PROMPT = "你是 GDL 错误分析助手，把以下编译错误列表总结成一句简洁的中文描述（不超过200字），只说错误位置和原因，不给修复建议。"
 ERROR_CLIPBOARD_PATTERN = re.compile(r"(line|\.gsm|\.gdl|error|warning|错误|警告)", re.IGNORECASE)
+FALLBACK_MODELS = ["moonshotai/kimi-k2.5"]
 
 clipboard_lock = threading.Lock()
 clipboard_buffer: list[str] = []
@@ -146,6 +147,58 @@ def _extract_gdl_code_blocks(text: str) -> list[str]:
     return [m.group(1).strip() for m in pattern.finditer(text)]
 
 
+def _is_model_route_unavailable(exc: Exception) -> bool:
+    message = str(exc).lower()
+    signals = (
+        "model_not_found",
+        "无可用渠道",
+        "serviceunavailableerror",
+        "service unavailable",
+        "no route",
+        "route unavailable",
+        "deployment_not_found",
+        "deployment not found",
+        "model not found",
+        "no available provider",
+    )
+    return any(signal in message for signal in signals)
+
+
+def _is_transient_upstream_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    signals = (
+        "timeout",
+        "timed out",
+        "readtimeout",
+        "connecttimeout",
+        "connection reset",
+        "connection refused",
+        "temporarily unavailable",
+        "bad gateway",
+        "gateway error",
+        "upstream",
+    )
+    return any(signal in message for signal in signals)
+
+
+def _generate_with_fallback(llm: LLMAdapter, messages: list[dict[str, object]]):
+    try:
+        return llm.generate(messages)
+    except Exception as primary_exc:
+        if not _is_model_route_unavailable(primary_exc):
+            raise
+
+        for model in FALLBACK_MODELS:
+            if model.strip() == llm.config.model.strip():
+                continue
+            try:
+                return llm.generate(messages, model=model)
+            except Exception:
+                continue
+
+        raise primary_exc
+
+
 def _build_messages(req: ChatRequest) -> list[dict[str, object]]:
     messages: list[dict[str, object]] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
@@ -240,12 +293,18 @@ def chat(req: ChatRequest) -> ChatResponse:
     llm = _create_llm_adapter()
     messages = _build_messages(req)
     try:
-        resp = llm.generate(messages)
+        resp = _generate_with_fallback(llm, messages)
     except RuntimeError as exc:
         message = str(exc)
-        if message.startswith("LLM 配置错误："):
+        message_lower = message.lower()
+        if message.startswith("LLM 配置错误：") or "authentication" in message_lower or "unauthorized" in message_lower:
             raise HTTPException(status_code=400, detail=message) from exc
-        raise
+        raise HTTPException(status_code=503, detail=message or "LLM 暂时不可用") from exc
+    except Exception as exc:
+        message = str(exc)
+        if _is_model_route_unavailable(exc) or _is_transient_upstream_error(exc):
+            raise HTTPException(status_code=503, detail="当前模型暂不可用，已尝试备用模型仍失败，请稍后重试。") from exc
+        raise HTTPException(status_code=500, detail=message or "后端内部错误") from exc
 
     reply = (resp.content or "").strip()
     code_blocks = _extract_gdl_code_blocks(reply)
