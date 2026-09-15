@@ -165,6 +165,24 @@ bool NameMatches (const char* paramName, const GS::UniString& wanted)
 	return GS::UniString (paramName).Compare (wanted, GS::CaseInsensitive) == GS::UniString::Equal;
 }
 
+// typeID is the legacy file category; modern windows can report Object.
+// Ask Archicad's subtype search and match the resolved index, never the name alone.
+bool BelongsToSubtype (const API_LibPart& part, API_LibTypeID subtype)
+{
+	API_LibPart ancestor = {};
+	ancestor.typeID = subtype;
+	API_LibPart matches[50] = {};
+	Int32 count = 0;
+	const GSErrCode err = ACAPI_LibraryPart_PatternSearch (
+		&ancestor, GS::UniString ("\"") + GS::UniString (part.docu_UName) + "\"", matches, &count);
+	bool found = false;
+	for (Int32 i = 0; i < count && i < 50; ++i) {
+		found = found || (err == NoError && matches[i].index == part.index);
+		delete matches[i].location;
+	}
+	return found;
+}
+
 // 把 JSON 覆盖值应用到 API_AddParType 数组（数组参数跳过并记录名字）
 void ApplyParameterOverrides (API_AddParType** addPars, Int32 addParNum,
 							  const GS::ObjectState& overrides,
@@ -304,10 +322,12 @@ GS::ObjectState EvaluateLibraryPartCommand::Execute (const GS::ObjectState& para
 	delete libPart.location;
 	libPart.location = nullptr;
 
-	// MVP：只支持独立放置的物件/灯具；门窗需要宿主墙，明确报错不静默
-	if (libPart.typeID == APILib_WindowID || libPart.typeID == APILib_DoorID || libPart.typeID == APILib_SkylightID)
-		return MakeError ("门窗/天窗类物件需要宿主墙，当前版本暂不支持权威求值");
-	if (libPart.typeID != APILib_ObjectID && libPart.typeID != APILib_LampID)
+	const bool isWindow = BelongsToSubtype (libPart, APILib_WindowID);
+	const bool isDoor = !isWindow && BelongsToSubtype (libPart, APILib_DoorID);
+	const bool needsWall = isWindow || isDoor;
+	if (BelongsToSubtype (libPart, APILib_SkylightID))
+		return MakeError ("天窗需要屋顶宿主，当前版本暂不支持权威求值");
+	if (!needsWall && libPart.typeID != APILib_ObjectID && libPart.typeID != APILib_LampID)
 		return MakeError ("该物件类型暂不支持权威求值（仅支持 Object/Lamp）");
 
 	// ── 3. 读默认参数并应用覆盖 ─────────────────────────────────────
@@ -334,7 +354,8 @@ GS::ObjectState EvaluateLibraryPartCommand::Execute (const GS::ObjectState& para
 
 	// ── 4. 组装元素 + 参数 memo ─────────────────────────────────────
 	API_Element element = {};
-	element.header.type = (libPart.typeID == APILib_LampID) ? API_LampID : API_ObjectID;
+	element.header.type = isWindow ? API_WindowID : isDoor ? API_DoorID :
+		(libPart.typeID == APILib_LampID ? API_LampID : API_ObjectID);
 	API_ElementMemo memo = {};
 	GSErrCode defaultsErr = ACAPI_Element_GetDefaults (&element, &memo);
 	if (defaultsErr != NoError) {
@@ -343,12 +364,20 @@ GS::ObjectState EvaluateLibraryPartCommand::Execute (const GS::ObjectState& para
 	}
 	ACAPI_DisposeAddParHdl (&memo.params);
 	memo.params = addPars;
-	element.object.pos = API_Coord { 0.0, 0.0 };
-	element.object.level = 0.0;
-	element.object.xRatio = dummyA;
-	element.object.yRatio = dummyB;
-	element.object.useXYFixSize = true;
-	element.object.libInd = libPart.index;
+	if (needsWall) {
+		element.window.openingBase.libInd = libPart.index;
+		element.window.openingBase.width = dummyA;
+		element.window.openingBase.height = dummyB;
+		element.window.lower = 0.0;
+		element.window.objLoc = (dummyA + 2.0) / 2.0;
+	} else {
+		element.object.pos = API_Coord { 0.0, 0.0 };
+		element.object.level = 0.0;
+		element.object.xRatio = dummyA;
+		element.object.yRatio = dummyB;
+		element.object.useXYFixSize = true;
+		element.object.libInd = libPart.index;
+	}
 
 	GS::ObjectState response;
 	GS::UniString innerError;
@@ -357,10 +386,31 @@ GS::ObjectState EvaluateLibraryPartCommand::Execute (const GS::ObjectState& para
 
 	GSErrCode err = ACAPI_CallUndoableCommand ("OpenBrep Evaluate Library Part",
 		[&]() -> GSErrCode {
+			API_Guid hostGuid = APINULLGuid;
+			if (needsWall) {
+				API_Element wall = {};
+				wall.header.type = API_WallID;
+				GSErrCode hostErr = ACAPI_Element_GetDefaults (&wall, nullptr);
+				if (hostErr == NoError) {
+					wall.wall.begC = {0.0, 0.0};
+					wall.wall.endC = {dummyA + 2.0, 0.0};
+					wall.wall.angle = 0.0;
+					wall.wall.bottomOffset = 0.0;
+					wall.wall.relativeTopStory = 0;
+					wall.wall.height = dummyB + 1.0;
+					hostErr = ACAPI_Element_Create (&wall, nullptr);
+				}
+				if (hostErr != NoError) {
+					innerError = "创建临时宿主墙失败: " + GS::UniString::Printf ("%d", hostErr);
+					return hostErr;
+				}
+				hostGuid = wall.header.guid;
+				element.window.owner = hostGuid;
+			}
 			// 临时放置
 			GSErrCode createErr = ACAPI_Element_Create (&element, &memo);
 			if (createErr != NoError) {
-				innerError = "临时放置物件失败（Teamwork 预留或类型不匹配）: " + GS::UniString::Printf ("%d", createErr);
+				innerError = "临时放置物件失败: " + GS::UniString::Printf ("%d", createErr);
 				return createErr;
 			}
 			const API_Guid tempGuid = element.header.guid;
@@ -486,6 +536,7 @@ GS::ObjectState EvaluateLibraryPartCommand::Execute (const GS::ObjectState& para
 			// 删除临时元素（undo scope 内创建+删除，用户项目与撤销栈无残留）
 			GS::Array<API_Guid> toDelete;
 			toDelete.Push (tempGuid);
+			if (hostGuid != APINULLGuid) toDelete.Push (hostGuid);
 			const GSErrCode deleteErr = ACAPI_Element_Delete (toDelete);
 			if (deleteErr != NoError) {
 				// 返回错误会让整个 undoable command 回滚，确保即使显式删除失败
