@@ -48,6 +48,7 @@ struct PrimitiveCollector {
 	std::vector<Polygon2D> polygons;
 	std::vector<Arc2D> arcs;
 	std::vector<Text2D> texts;
+	std::vector<API_Coord> hotspots;
 	Int32 unsupportedCount = 0;
 	Int32 approximatedCurveCount = 0;
 };
@@ -530,6 +531,21 @@ GS::ObjectState EvaluateLibraryPartCommand::Execute (const GS::ObjectState& para
 				if (primErr != NoError) {
 					innerError = "Archicad 2D 求值失败: " + GS::UniString::Printf ("%d", primErr);
 					evaluationErr = primErr;
+				} else {
+					// PROJECT2 may be consumed by Archicad's floor-plan renderer without
+					// yielding drawable ShapePrims.  GetHotspots is the authoritative
+					// companion API for the same evaluated 2D script and preserves the
+					// actual parameterized coordinates instead of inventing geometry.
+					Int32 hotspotCount = 0;
+					API_PrimHotspot** hotspots = nullptr;
+					const GSErrCode hotspotErr = ACAPI_LibraryPart_GetHotspots (
+						libPart.index, tempGuid, &hotspotCount, &hotspots);
+					if (hotspotErr == NoError && hotspots != nullptr && *hotspots != nullptr) {
+						for (Int32 i = 0; i < hotspotCount; ++i)
+							primitives.hotspots.push_back ((*hotspots)[i].loc);
+					}
+					if (hotspots != nullptr)
+						BMKillHandle (reinterpret_cast<GSHandle*> (&hotspots));
 				}
 			}
 
@@ -596,6 +612,13 @@ GS::ObjectState EvaluateLibraryPartCommand::Execute (const GS::ObjectState& para
 			item.Add ("text", text.text);
 			item.Add ("size", text.size);
 			texts (item);
+		}
+		const auto& hotspots = preview2D.AddList<GS::ObjectState> ("points");
+		for (const API_Coord& point : primitives.hotspots) {
+			GS::ObjectState item;
+			item.Add ("x", point.x);
+			item.Add ("y", point.y);
+			hotspots (item);
 		}
 		preview2D.Add ("unsupportedCount", primitives.unsupportedCount);
 		preview2D.Add ("approximatedCurveCount", primitives.approximatedCurveCount);
