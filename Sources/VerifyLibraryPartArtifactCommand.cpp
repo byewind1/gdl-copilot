@@ -99,12 +99,23 @@ bool FindExactLoadedPart (const GS::UniString& requestedName,
                           API_LibPart* match,
                           GS::Array<GS::ObjectState>* observations = nullptr)
 {
-    API_LibPart ancestor {};
-    ancestor.typeID = APILib_ObjectID;
     API_LibPart candidates[50] {};
     Int32 count = 0;
     const GS::UniString pattern = requestedName.IsEmpty () ? "*" : requestedName;
-    if (ACAPI_LibraryPart_PatternSearch (&ancestor, pattern, candidates, &count) != NoError)
+    API_LibPart ancestor {};
+    ancestor.typeID = APILib_ObjectID;
+    GSErrCode searchError = ACAPI_LibraryPart_PatternSearch (&ancestor, pattern, candidates, &count);
+    if (searchError != NoError || count == 0) {
+        for (Int32 i = 0; i < count && i < 50; ++i)
+            delete candidates[i].location;
+        for (Int32 i = 0; i < 50; ++i)
+            candidates[i] = {};
+        count = 0;
+        ancestor = {};
+        ancestor.typeID = API_ZombieLibID;
+        searchError = ACAPI_LibraryPart_PatternSearch (&ancestor, pattern, candidates, &count);
+    }
+    if (searchError != NoError)
         return false;
     for (Int32 i = 0; i < count && i < 50; ++i) {
         GS::UniString candidatePath;
@@ -207,7 +218,7 @@ GS::ObjectState VerifyLibraryPartArtifactCommand::Execute (const GS::ObjectState
         entry.libraryType = API_LocalLibrary;
         entry.available = true;
         augmented.Push (entry);
-        if (ACAPI_LibraryManagement_SetLibraries (&augmented) != NoError)
+        if (ACAPI_LibraryManagement_AddLibraries (&folder) != NoError)
             return MakeVerificationError ("加入临时验证图库失败", "library_load_failed");
         ACAPI_LibraryManagement_CheckLibraries ();
     }
