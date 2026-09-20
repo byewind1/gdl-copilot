@@ -89,6 +89,11 @@ bool SamePath (GS::UniString left, GS::UniString right)
 {
     left.ReplaceAll ("\\", "/");
     right.ReplaceAll ("\\", "/");
+    // macOS exposes the same temp volume as /var and /private/var.
+    if (left.BeginsWith ("/private/"))
+        left.Delete (0, 8);
+    if (right.BeginsWith ("/private/"))
+        right.Delete (0, 8);
     return left == right;
 }
 
