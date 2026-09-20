@@ -96,7 +96,8 @@ bool FindExactLoadedPart (const GS::UniString& requestedName,
                           const GS::UniString& requestedGuid,
                           const GS::UniString& gsmPath,
                           const GS::UniString& expectedHash,
-                          API_LibPart* match)
+                          API_LibPart* match,
+                          GS::Array<GS::ObjectState>* observations = nullptr)
 {
     API_LibPart ancestor {};
     ancestor.typeID = APILib_ObjectID;
@@ -115,6 +116,17 @@ bool FindExactLoadedPart (const GS::UniString& requestedName,
         const bool guidMatches = requestedGuid.IsEmpty () || GS::UniString (candidates[i].ownUnID) == requestedGuid;
         const bool pathMatches = SamePath (candidatePath, gsmPath);
         const bool hashMatches = candidateHash == expectedHash;
+        if (observations != nullptr) {
+            GS::ObjectState item;
+            item.Add ("name", GS::UniString (candidates[i].docu_UName));
+            item.Add ("guid", GS::UniString (candidates[i].ownUnID));
+            item.Add ("path", candidatePath);
+            item.Add ("sha256", candidateHash);
+            item.Add ("guidMatches", guidMatches);
+            item.Add ("pathMatches", pathMatches);
+            item.Add ("hashMatches", hashMatches);
+            observations->Push (item);
+        }
         if (guidMatches && pathMatches && hashMatches) {
             *match = candidates[i];
             candidates[i].location = nullptr;
@@ -201,7 +213,8 @@ GS::ObjectState VerifyLibraryPartArtifactCommand::Execute (const GS::ObjectState
     }
 
     API_LibPart part {};
-    const bool exactFound = FindExactLoadedPart (name, guid, gsmPath, actualHash, &part);
+    GS::Array<GS::ObjectState> candidateObservations;
+    const bool exactFound = FindExactLoadedPart (name, guid, gsmPath, actualHash, &part, &candidateObservations);
     const GSErrCode searchError = exactFound ? NoError : APIERR_BADNAME;
     GS::UniString loadedPath;
     GS::UniString loadedHash;
@@ -218,7 +231,11 @@ GS::ObjectState VerifyLibraryPartArtifactCommand::Execute (const GS::ObjectState
     if (!identityMatches) {
         ACAPI_LibraryManagement_SetLibraries (&before);
         ACAPI_LibraryManagement_CheckLibraries ();
-        return MakeVerificationError ("Archicad 实际加载的图库物件不是请求的 GSM", "identity_mismatch");
+        GS::ObjectState mismatch = MakeVerificationError ("Archicad 实际加载的图库物件不是请求的 GSM", "identity_mismatch");
+        const auto& list = mismatch.AddList<GS::ObjectState> ("identityCandidates");
+        for (const GS::ObjectState& item : candidateObservations)
+            list (item);
+        return mismatch;
     }
 
     // Reuse the single authoritative evaluator after the identity gate.
