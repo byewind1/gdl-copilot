@@ -280,8 +280,7 @@ GS::ObjectState VerifyLibraryPartArtifactCommand::Execute (const GS::ObjectState
     response.Add ("archicadVersion", GS::UniString::Printf ("%d.%d.%d", serverInfo.mainVersion,
                                                               serverInfo.releaseVersion, serverInfo.buildNum));
     response.Add ("addonVersion", ADDON_VERSION);
-    response.Add ("libraryRestoreStatus", "not_restored");
-    response.Add ("undoStatus", "not_needed");
+	response.Add ("undoStatus", "not_needed");
     response.Add ("elementCountBefore", elementCountBefore);
     response.Add ("elementCountAfter", ElementCount ());
     GS::Array<API_LibraryInfo> afterLibraries;
