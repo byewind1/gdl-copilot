@@ -283,13 +283,13 @@ GS::ObjectState VerifyLibraryPartArtifactCommand::Execute (const GS::ObjectState
 	response.Add ("undoStatus", "not_needed");
     response.Add ("elementCountBefore", elementCountBefore);
     response.Add ("elementCountAfter", ElementCount ());
-    GS::Array<API_LibraryInfo> afterLibraries;
-    if (ACAPI_LibraryManagement_GetLibraries (&afterLibraries) == NoError)
-        AddLibrarySnapshot (afterLibraries, "libraryStateAfter", response);
-    if (ACAPI_LibraryManagement_SetLibraries (&before) != NoError)
-        return MakeVerificationError ("恢复原图库清单失败", "library_restore_failed");
-    ACAPI_LibraryManagement_CheckLibraries ();
-    response.Add ("libraryRestoreStatus", "restored");
+	if (ACAPI_LibraryManagement_SetLibraries (&before) != NoError)
+		return MakeVerificationError ("恢复原图库清单失败", "library_restore_failed");
+	ACAPI_LibraryManagement_CheckLibraries ();
+	GS::Array<API_LibraryInfo> afterLibraries;
+	if (ACAPI_LibraryManagement_GetLibraries (&afterLibraries) == NoError)
+		AddLibrarySnapshot (afterLibraries, "libraryStateAfter", response);
+	response.Add ("libraryRestoreStatus", "restored");
     response.Add ("undoStatus", "restored");
     return response;
 }
