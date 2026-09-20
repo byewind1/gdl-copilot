@@ -4,6 +4,7 @@
 #include "OpenBrepCommands.hpp"
 #include "CopilotPalette.hpp"
 #include "EvaluateLibraryPartCommand.hpp"
+#include "VerifyLibraryPartArtifactCommand.hpp"
 
 API_AddonType CheckEnvironment (API_EnvirParams* envir)
 {
@@ -47,6 +48,12 @@ GSErrCode Initialize (void)
 	// Add-On Commands HTTP 端点调用
 	{
 		GS::Owner<EvaluateLibraryPartCommand> command = GS::NewOwned<EvaluateLibraryPartCommand> ();
+		err = ACAPI_AddOnAddOnCommunication_InstallAddOnCommandHandler (command.Pass ());
+		if (DBERROR (err != NoError))
+			return err;
+	}
+	{
+		GS::Owner<VerifyLibraryPartArtifactCommand> command = GS::NewOwned<VerifyLibraryPartArtifactCommand> ();
 		err = ACAPI_AddOnAddOnCommunication_InstallAddOnCommandHandler (command.Pass ());
 		if (DBERROR (err != NoError))
 			return err;
