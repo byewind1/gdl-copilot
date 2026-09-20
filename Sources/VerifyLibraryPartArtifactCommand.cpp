@@ -92,6 +92,46 @@ bool SamePath (GS::UniString left, GS::UniString right)
     return left == right;
 }
 
+bool FindExactLoadedPart (const GS::UniString& requestedName,
+                          const GS::UniString& requestedGuid,
+                          const GS::UniString& gsmPath,
+                          const GS::UniString& expectedHash,
+                          API_LibPart* match)
+{
+    API_LibPart ancestor {};
+    ancestor.typeID = APILib_ObjectID;
+    API_LibPart candidates[50] {};
+    Int32 count = 0;
+    const GS::UniString pattern = requestedName.IsEmpty () ? "*" : requestedName;
+    if (ACAPI_LibraryPart_PatternSearch (&ancestor, pattern, candidates, &count) != NoError)
+        return false;
+    for (Int32 i = 0; i < count && i < 50; ++i) {
+        GS::UniString candidatePath;
+        if (candidates[i].location != nullptr)
+            candidatePath = PathOf (*candidates[i].location);
+        GS::UniString candidateHash;
+        if (!candidatePath.IsEmpty ())
+            ReadFileSha256 (candidatePath, &candidateHash);
+        const bool guidMatches = requestedGuid.IsEmpty () || GS::UniString (candidates[i].ownUnID) == requestedGuid;
+        const bool pathMatches = SamePath (candidatePath, gsmPath);
+        const bool hashMatches = candidateHash == expectedHash;
+        if (guidMatches && pathMatches && hashMatches) {
+            *match = candidates[i];
+            candidates[i].location = nullptr;
+            for (Int32 j = 0; j < count && j < 50; ++j) {
+                if (j != i && candidates[j].location != nullptr)
+                    delete candidates[j].location;
+            }
+            return true;
+        }
+        if (candidates[i].location != nullptr) {
+            delete candidates[i].location;
+            candidates[i].location = nullptr;
+        }
+    }
+    return false;
+}
+
 Int32 ElementCount ()
 {
     GS::Array<API_Guid> elements;
@@ -161,11 +201,8 @@ GS::ObjectState VerifyLibraryPartArtifactCommand::Execute (const GS::ObjectState
     }
 
     API_LibPart part {};
-    if (!guid.IsEmpty ())
-        CHTruncate (guid.ToCStr (), part.ownUnID, sizeof part.ownUnID);
-    else
-        GS::ucscpy (part.docu_UName, name.ToUStr ());
-    const GSErrCode searchError = ACAPI_LibraryPart_Search (&part, false);
+    const bool exactFound = FindExactLoadedPart (name, guid, gsmPath, actualHash, &part);
+    const GSErrCode searchError = exactFound ? NoError : APIERR_BADNAME;
     GS::UniString loadedPath;
     GS::UniString loadedHash;
     if (searchError == NoError && part.location != nullptr)
