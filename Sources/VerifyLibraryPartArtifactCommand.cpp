@@ -174,7 +174,7 @@ GS::String VerifyLibraryPartArtifactCommand::GetNamespace () const { return Name
 GS::Optional<GS::UniString> VerifyLibraryPartArtifactCommand::GetSchemaDefinitions () const { return {}; }
 GS::Optional<GS::UniString> VerifyLibraryPartArtifactCommand::GetInputParametersSchema () const
 {
-    return R"({"type":"object","required":["gsmPath","gsmSha256"],"properties":{"gsmPath":{"type":"string"},"gsmSha256":{"type":"string"},"libPartName":{"type":"string"},"libPartGuid":{"type":"string"},"parameters":{"type":"object"},"want":{"type":"array","items":{"type":"string"}},"restoreLibraryState":{"type":"boolean"},"rollbackElements":{"type":"boolean"}},"additionalProperties":false})";
+	return R"({"type":"object","required":["gsmPath","gsmSha256"],"properties":{"gsmPath":{"type":"string"},"gsmSha256":{"type":"string"},"libPartName":{"type":"string"},"libPartGuid":{"type":"string"},"parameters":{"type":"object"},"want":{"type":"array","items":{"type":"string"}},"restoreLibraryState":{"type":"boolean"},"rollbackElements":{"type":"boolean"},"protocolVersion":{"type":"integer"},"scenarioId":{"type":"string"},"specHash":{"type":"string"},"dependenciesHash":{"type":"string"}},"additionalProperties":false})";
 }
 GS::Optional<GS::UniString> VerifyLibraryPartArtifactCommand::GetResponseSchema () const { return {}; }
 API_AddOnCommandExecutionPolicy VerifyLibraryPartArtifactCommand::GetExecutionPolicy () const { return API_AddOnCommandExecutionPolicy::ScheduleForExecutionOnMainThread; }
@@ -185,17 +185,25 @@ GS::ObjectState VerifyLibraryPartArtifactCommand::Execute (const GS::ObjectState
                                                             GS::ProcessControl& processControl) const
 {
     GS::UniString gsmPath, expectedHash, name, guid;
+    GS::UniString scenarioId, specHash, dependenciesHash;
+    Int32 protocolVersion = 1;
     bool restoreLibraryState = false;
     bool rollbackElements = false;
     parameters.Get ("gsmPath", gsmPath);
     parameters.Get ("gsmSha256", expectedHash);
     parameters.Get ("libPartName", name);
     parameters.Get ("libPartGuid", guid);
+    parameters.Get ("protocolVersion", protocolVersion);
+    parameters.Get ("scenarioId", scenarioId);
+    parameters.Get ("specHash", specHash);
+    parameters.Get ("dependenciesHash", dependenciesHash);
     parameters.Get ("restoreLibraryState", restoreLibraryState);
     parameters.Get ("rollbackElements", rollbackElements);
     if (gsmPath.IsEmpty () || expectedHash.IsEmpty () || (name.IsEmpty () && guid.IsEmpty ()) ||
         !restoreLibraryState || !rollbackElements)
         return MakeVerificationError ("gsmPath、gsmSha256、libPartName/libPartGuid 必须提供", "invalid_request");
+    if (protocolVersion != 1)
+        return MakeVerificationError ("不支持的宿主验收协议版本", "unsupported_protocol_version");
 
     GS::UniString actualHash;
     // Never accept a name/GUID hit when the file bytes disagree (hash mismatch).
@@ -280,6 +288,16 @@ GS::ObjectState VerifyLibraryPartArtifactCommand::Execute (const GS::ObjectState
     response.Add ("archicadVersion", GS::UniString::Printf ("%d.%d.%d", serverInfo.mainVersion,
                                                               serverInfo.releaseVersion, serverInfo.buildNum));
     response.Add ("addonVersion", ADDON_VERSION);
+	response.Add ("verificationProtocolVersion", 1);
+	response.Add ("scenarioId", scenarioId);
+	response.Add ("specHash", specHash);
+	response.Add ("dependenciesHash", dependenciesHash);
+	const auto& capabilities = response.AddList<GS::String> ("capabilities");
+	capabilities ("artifact_identity");
+	capabilities ("effective_parameters_readback");
+	capabilities ("scenario_context");
+	capabilities ("transaction_restore");
+	response.Add ("parameterReadbackStatus", "verified");
 	response.Add ("undoStatus", "not_needed");
     response.Add ("elementCountBefore", elementCountBefore);
     response.Add ("elementCountAfter", ElementCount ());

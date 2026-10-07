@@ -166,6 +166,54 @@ bool NameMatches (const char* paramName, const GS::UniString& wanted)
 	return GS::UniString (paramName).Compare (wanted, GS::CaseInsensitive) == GS::UniString::Equal;
 }
 
+GSErrCode ReadEffectiveParameters (const API_Guid& elementGuid, API_ElemType elementType,
+								   GS::ObjectState& effectiveParameters)
+{
+	API_ParamOwnerType owner {};
+	owner.guid = elementGuid;
+	owner.type = elementType;
+	const GSErrCode openError = ACAPI_LibraryPart_OpenParameters (&owner);
+	if (openError != NoError)
+		return openError;
+
+	API_GetParamsType actual {};
+	GSErrCode readError = ACAPI_LibraryPart_GetActParameters (&actual);
+	if (readError == NoError) {
+		effectiveParameters.Add ("A", actual.a);
+		effectiveParameters.Add ("B", actual.b);
+		if (actual.params != nullptr) {
+			const UInt32 count = static_cast<UInt32> (
+				BMGetHandleSize (reinterpret_cast<GSHandle> (actual.params)) / sizeof (API_AddParType));
+			for (UInt32 i = 0; i < count; ++i) {
+				const API_AddParType& parameter = (*actual.params)[i];
+				if (parameter.dim1 > 1 || parameter.dim2 > 1)
+					continue; // Array values remain explicit omissions; never flatten them into a false scalar.
+				const GS::String name (parameter.name);
+				switch (parameter.typeID) {
+					case APIParT_Boolean:
+						effectiveParameters.Add (name, parameter.value.real != 0.0);
+						break;
+					case APIParT_CString: {
+						const auto* text = reinterpret_cast<const GS::UniChar::Layout*> (parameter.value.uStr);
+						effectiveParameters.Add (name, GS::UniString (text));
+						break;
+					}
+					case APIParT_Separator:
+					case APIParT_Title:
+					case APIParT_Dictionary:
+						break; // These entries do not have a scalar JSON value.
+					default:
+						effectiveParameters.Add (name, parameter.value.real);
+						break;
+				}
+			}
+		}
+	}
+	const GSErrCode closeError = ACAPI_LibraryPart_CloseParameters ();
+	ACAPI_DisposeAddParHdl (&actual.params);
+	return readError != NoError ? readError : closeError;
+}
+
 // typeID is the legacy file category; modern windows can report Object.
 // Ask Archicad's subtype search and match the resolved index, never the name alone.
 bool BelongsToSubtype (const API_LibPart& part, API_LibTypeID subtype)
@@ -546,6 +594,19 @@ GS::ObjectState EvaluateLibraryPartCommand::Execute (const GS::ObjectState& para
 					}
 					if (hotspots != nullptr)
 						BMKillHandle (reinterpret_cast<GSHandle*> (&hotspots));
+				}
+			}
+
+			if (evaluationErr == NoError) {
+				GS::ObjectState effectiveParameters;
+				const GSErrCode parameterReadError = ReadEffectiveParameters (
+					tempGuid, element.header.type, effectiveParameters);
+				if (parameterReadError != NoError) {
+					innerError = "读取 Archicad 实际有效参数失败: " + GS::UniString::Printf ("%d", parameterReadError);
+					evaluationErr = parameterReadError;
+				} else {
+					response.Add ("effectiveParameters", effectiveParameters);
+					response.Add ("parameterReadbackStatus", "verified");
 				}
 			}
 
